@@ -10,7 +10,7 @@ import (
 
 	"github.com/thb-cmyk/aliyun-amqp-demo/amqpbasic"
 	"github.com/thb-cmyk/aliyun-amqp-demo/databasic"
-	voltage "github.com/thb-cmyk/aliyun-amqp-demo/dataworker"
+	worker "github.com/thb-cmyk/aliyun-amqp-demo/dataworker"
 )
 
 //参数说明，请参见AMQP客户端接入说明文档。
@@ -72,7 +72,7 @@ func main() {
 			if num <= 0 {
 				continue
 			}
-			rawnode := databasic.RawNode_create("aliyun", buf)
+			rawnode := databasic.RawNode_create("aliyun", buf[0])
 			databasic.Send_raw(rawnode)
 		}
 	}()
@@ -84,13 +84,15 @@ func main() {
 }
 
 func Aliyun_handler(tasknode *databasic.TaskNode, rawnode *databasic.RawNode) bool {
-	entry, ok := voltage.DataInformationGen(rawnode.Raw.([]byte), rawnode.Id, true)
+
+	dataentry, ok := worker.DataEntry_Register(rawnode.Raw.([]byte), "test001")
 	if !ok {
-		return ok
+		fmt.Printf("dataentry register return a error!\n\r")
 	}
-	ok = voltage.DataInsert(entry)
+
+	ok = worker.DataInsert(dataentry)
 	if !ok {
-		return ok
+		fmt.Printf("data insert return a error!\n\r")
 	}
 	return true
 }

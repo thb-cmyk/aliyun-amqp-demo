@@ -15,6 +15,17 @@ func TestBroker(t *testing.T) {
 		return true
 	}, "test001")
 
+	ProceNode_register(func(tasknode *TaskNode, rawnode *RawNode) bool {
+		fmt.Printf("tasknode:%s, rawnode:%s\n\r", tasknode.Id, rawnode.Id)
+		fmt.Printf("data:%s\n\r", rawnode.Raw.(string))
+		return true
+	}, "test002")
+	ProceNode_register(func(tasknode *TaskNode, rawnode *RawNode) bool {
+		fmt.Printf("tasknode:%s, rawnode:%s\n\r", tasknode.Id, rawnode.Id)
+		fmt.Printf("data:%s\n\r", rawnode.Raw.(string))
+		return true
+	}, "test003")
+
 	go func() {
 		for i := 0; i < 60; i++ {
 			data := fmt.Sprintf("rawnode data %d", i)
@@ -26,8 +37,31 @@ func TestBroker(t *testing.T) {
 		}
 	}()
 
+	go func() {
+		for i := 0; i < 60; i++ {
+			data := fmt.Sprintf("rawnode data %d", i)
+			rawnode := RawNode_create("test002", data)
+			Send_raw(rawnode)
+			if i == 59 {
+				i = 0
+			}
+		}
+
+	}()
+	go func() {
+		for i := 0; i < 60; i++ {
+			data := fmt.Sprintf("rawnode data %d", i)
+			rawnode := RawNode_create("test003", data)
+			Send_raw(rawnode)
+			if i == 59 {
+				i = 0
+			}
+		}
+	}()
+
 	for {
-		/* the following make the condition is lower */
-		fmt.Printf("main loop!\n\r")
+		fmt.Printf("")
 	}
+
+
 }

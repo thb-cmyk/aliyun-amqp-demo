@@ -50,7 +50,8 @@ func Broker() {
 	/* the unique functionality of broker is to create router, scheduler, controler, privileger go routine */
 	go Router()
 	go Scheduler()
-	go Privileger()
+	// we should create a go routine based on Controler(), but the conroler() is empty.
+	//go Controler()
 }
 
 func Router() {
@@ -91,10 +92,15 @@ func Router() {
 				}
 			}
 		}
+		//
+		/* 		monitor := Monitor_Create(tasknode, rawnode, Add)
+		   		Send_mon(monitor) */
 
-		/* we transimit the message to privileger that inform the information of adding the rawnode the tasknode */
-		monitor := Monitor_Create(tasknode, rawnode, Add)
-		Send_mon(monitor)
+		// we will add a component that handle this rawnode of failed to push rawnode
+		ok := tasknode.TaskNode_Push(rawnode)
+		if !ok {
+
+		}
 	}
 
 }
@@ -105,7 +111,7 @@ func Scheduler() {
 		tasknode := TaskNode_find("first")
 		if tasknode == nil {
 			/* we print the information to handle the condition of the task list is empty */
-			fmt.Printf("The urgent task is not found due to the task list is empty!\n\r")
+			//fmt.Printf("The urgent task is not found due to the task list is empty!\n\r")
 			time.Sleep(DEFAUT_SLEEP_TIMEPEICE)
 			continue
 		} else if tasknode.Goroutine {
@@ -121,45 +127,32 @@ func Scheduler() {
 		tasknode.Goroutine = true
 		/* you should to consider the argument that the go routine that will be created required */
 		go func(tasknode *TaskNode) {
-			defer fmt.Printf("tasknode %s exit\n\r", tasknode.Id)
-			securitynode := tasknode.Raw_list.Prev
-			sentrynode := tasknode.Raw_list
-			handle := true
+			// we should to create a context by use the context.WithDeadLine(), if we want to add timepeice for the go routine
 			ctx := context.TODO()
+
 			for {
 				select {
+				// the case check if the context expity or not
+				case <-ctx.Done():
+					return
+				// the case check if the task has canceled or not
 				case <-tasknode.Cancel:
 					return
-				case <-ctx.Done():
-
+				// the case check if have rawnode or not in task buffer
 				default:
-					if sentrynode.Prev == sentrynode || sentrynode.Next == sentrynode {
+					rawnode := tasknode.TaskNode_Fetch()
+					if rawnode == nil {
 						time.Sleep(DEFAUT_SLEEP_TIMEPEICE)
 						continue
 					}
-
-					rawnode := securitynode.Next.Parent.(*RawNode)
-					if rawnode.Id == "sentry" {
-						handle = false
+					ok := method(tasknode, rawnode)
+					if !ok {
+						fmt.Printf("in the task go routine %s, the method return a error!\n\r", tasknode.Id)
+					} else {
+						// Now, we dont to handle the condition
 					}
-
-					if handle {
-						method := tasknode.Method.Operation.(func(*TaskNode, *RawNode) bool)
-
-						ok := method(tasknode, rawnode)
-						if ok {
-							monitor := Monitor_Create(tasknode, rawnode, Remove)
-							Send_mon(monitor)
-						}
-					}
-					handle = true
-
-					for securitynode.Next.Parent.(*RawNode).handle {
-						time.Sleep(DEFAUT_SLEEP_TIMEPEICE)
-						continue
-					}
-					securitynode = securitynode.Prev
 				}
+
 			}
 		}(tasknode)
 		/* move the tasknode to list hail */
@@ -178,107 +171,9 @@ func Scheduler() {
 }
 
 func Controler() {
-	for {
-		listnode := global_tasknode_entry
-		if listnode.Next == listnode || listnode.Prev == listnode {
-			time.Sleep(DEFAUT_SLEEP_TIMEPEICE)
-			continue
-		}
-
-		for {
-			listnode = listnode.ListNode_lookhead()
-			if listnode == global_tasknode_entry {
-				time.Sleep(DEFAUT_SLEEP_TIMEPEICE)
-				break
-			}
-			tasknode := listnode.Parent.(*TaskNode)
-			if tasknode.TaskNode_is_timeout() {
-				if tasknode.Raw_num == 0 {
-					select {
-					case <-tasknode.Cancel:
-					default:
-						monitor := Monitor_Create(tasknode, nil, Unregister)
-						Send_mon(monitor)
-					}
-				} else {
-					tasknode.TaskNode_unset_timeout()
-				}
-			}
-			if tasknode.Raw_num == 0 {
-				tasknode.TaskNode_set_timeout(DEFAULT_TIMEOUT)
-			}
-		}
-	}
-}
-
-func Privileger() {
-
-	for {
-		var monitor *Monitor
-		select {
-		case monitor = <-Receive_mon():
-		default:
-			time.Sleep(DEFAUT_SLEEP_TIMEPEICE)
-			continue
-		}
-		switch monitor.Operation {
-		case Add:
-			tasknode := monitor.Tasknode
-			if tasknode == nil {
-				fmt.Printf("")
-			}
-			rawnode := monitor.Information.(*RawNode)
-			if rawnode == nil {
-				fmt.Printf("")
-			}
-			ok := tasknode.TaskNode_add(rawnode)
-			if !ok {
-				fmt.Printf("")
-			}
-			continue
-		case Remove:
-			tasknode := monitor.Tasknode
-			if tasknode == nil {
-				fmt.Printf("")
-			}
-			rawnode := monitor.Information.(*RawNode)
-			if rawnode == nil {
-				fmt.Printf("")
-			}
-			ok := tasknode.TaskNode_remove(rawnode)
-			if !ok {
-				fmt.Printf("")
-			}
-			continue
-		case Update:
-			tasknode := monitor.Tasknode
-			if tasknode == nil {
-				fmt.Printf("")
-			}
-			method := monitor.Information.(*ProceNode)
-			if method == nil {
-				fmt.Printf("")
-			}
-			ok := tasknode.TaskNode_update_mthod(method, nil)
-			if !ok {
-				fmt.Printf("")
-			}
-		case Unregister:
-			tasknode := monitor.Tasknode
-			if tasknode == nil {
-				fmt.Printf("")
-			}
-			ok := tasknode.TaskNode_unregister()
-			if !ok {
-				fmt.Printf("")
-			}
-		default:
-			/* We should regard the condition as fail, if we no capability to handle the condition */
-			fmt.Printf("")
-		}
-	}
 
 }
+
 
 func Receive_raw() <-chan *RawNode {
 	return global_raw_channel
@@ -326,9 +221,7 @@ func All_Init() {
 	tasknode.Tiemout_is_set = false
 	tasknode.Timeout = time.Now()
 	tasknode.Timepeice = 0
-	tasknode.Raw_list = nil
-	tasknode.Raw_max = 50
-	tasknode.Raw_num = 0
+	tasknode.Buffer = make(chan *RawNode, 100)
 	tasknode.List = global_tasknode_entry
 
 	global_dataclass_entry.Parent = dataclass

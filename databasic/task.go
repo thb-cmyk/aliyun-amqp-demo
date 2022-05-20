@@ -13,9 +13,8 @@ type TaskNode struct {
 
 	Method *ProceNode /* it is a method to process the raw data */
 
-	Raw_list *ListNode /* it is a list holding raw data, which receive from the global channel */
-	Raw_max  int       /* the memeber is unused */
-	Raw_num  int       /* the number of Raw_list hold raw data amount */
+	// provide a buffer for receiving data from global channel
+	Buffer chan *RawNode
 
 	Timepeice time.Duration /* Timepeice is the max value of running time each calling. */
 
@@ -26,21 +25,21 @@ type TaskNode struct {
 	Goroutine bool
 }
 
+const (
+	DEFAULT_BUFFER_SIZE int = 100
+)
+
 func TaskNode_register(id string, method *ProceNode, timepeice time.Duration) *TaskNode {
 	if id == "" || method == nil || timepeice <= 0 {
 		return nil
 	}
-
-	rawnode := RawNode_create("sentry", nil)
 
 	tasknode := new(TaskNode)
 	tasknode.Id = id
 	tasknode.Method = method
 	tasknode.Timepeice = time.Duration(timepeice)
 	tasknode.List = ListNode_create(tasknode)
-	tasknode.Raw_list = ListNode_create(rawnode)
-	tasknode.Raw_max = 50
-	tasknode.Raw_num = 0
+	tasknode.Buffer = make(chan *RawNode, DEFAULT_BUFFER_SIZE)
 	tasknode.Cancel = make(chan bool)
 	tasknode.Goroutine = false
 
@@ -48,9 +47,7 @@ func TaskNode_register(id string, method *ProceNode, timepeice time.Duration) *T
 	ok := ListNode_insert_next(global_tasknode_entry, tasknode.List)
 	if !ok {
 		tasknode.List.Parent = nil
-		tasknode.Raw_list.Parent = nil
 		tasknode.List = nil
-		tasknode.Raw_list = nil
 		return nil
 	}
 	global_tasknode_num++
@@ -95,7 +92,25 @@ func (tn *TaskNode) TaskNode_unregister() bool {
 	return true
 }
 
-func (tn *TaskNode) TaskNode_add(rawnode *RawNode) bool {
+func (tn *TaskNode) TaskNode_Push(rawnode *RawNode) bool {
+	select {
+	case tn.Buffer <- rawnode:
+		return true
+	default:
+		return false
+	}
+}
+
+func (tn *TaskNode) TaskNode_Fetch() *RawNode {
+	select {
+	case rawnode := <-tn.Buffer:
+		return rawnode
+	default:
+		return nil
+	}
+}
+
+/* func (tn *TaskNode) TaskNode_add(rawnode *RawNode) bool {
 
 	if rawnode == nil {
 		return false
@@ -152,7 +167,7 @@ func (tn *TaskNode) TaskNode_remove(rawnode *RawNode) bool {
 	}
 
 	return true
-}
+} */
 
 func (tn *TaskNode) TaskNode_update_mthod(method *ProceNode, ctx context.Context) bool {
 
