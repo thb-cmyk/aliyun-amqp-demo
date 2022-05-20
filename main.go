@@ -14,16 +14,16 @@ import (
 )
 
 //参数说明，请参见AMQP客户端接入说明文档。
-const accessKey = "LTAI5tDTMKSxBGCgnbWyaPvt"
-const accessSecret = "3Vmfy9VcAjIdX8V8HQMzDdnxucfrm3"
-const consumerGroupId = "DEFAULT_GROUP"
-const clientId = "00:0c:29:c4:01:22"
+const accessKey = ""
+const accessSecret = ""
+const consumerGroupId = ""
+const clientId = ""
 
 //iotInstanceId：实例ID。
-const iotInstanceId = "iot-06z00bp0nwmb9tp"
+const iotInstanceId = ""
 
 //接入域名，请参见AMQP客户端接入说明文档。
-const host = "iot-06z00bp0nwmb9tp.amqp.iothub.aliyuncs.com"
+const host = ""
 
 func main() {
 	var ok int
